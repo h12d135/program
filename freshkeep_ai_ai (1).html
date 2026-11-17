@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프레시킵 (FreshKeep AI) - 20대 1인 가구 AI 식재료 관리 솔루션</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Pretendard / Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans KR"', 'sans-serif'],
+                    },
+                    colors: {
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            200: '#a7f3d0',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* 스캔 애니메이션 효과 */
+        @keyframes scanLine {
+            0% { top: 5%; opacity: 0.2; }
+            50% { top: 90%; opacity: 1; }
+            100% { top: 5%; opacity: 0.2; }
+        }
+        .scanner-beam {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #10b981, #34d399, #10b981, transparent);
+            box-shadow: 0 0 12px #10b981;
+            animation: scanLine 2.2s infinite ease-in-out;
+        }
+        /* 스크롤바 커스터마이징 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- 상단 알림 토스트 컨테이너 (alert 대신 사용) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- 헤더 & 내비게이션 -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between py-3.5 gap-3">
+                <!-- 브랜드 로고 -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('scan')">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-xl font-extrabold tracking-tight text-slate-900">프레시킵 <span class="text-emerald-600">FreshKeep AI</span></h1>
+                                <span class="hidden sm:inline-block px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">20대 1인가구 에디션</span>
+                            </div>
+                            <p class="text-xs text-slate-500">AI 신선도 판별 & 공공데이터 기반 맞춤 식재료 보관 솔루션</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 내비게이션 탭 -->
+                <nav class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0" id="main-nav">
+                    <button onclick="switchTab('scan')" data-tab="scan" class="nav-btn active flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap bg-emerald-600 text-white shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        AI 신선도 스캔
+                    </button>
+                    <button onclick="switchTab('fridge')" data-tab="fridge" class="nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap text-slate-600 hover:bg-slate-100">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        내 냉장고 관리
+                        <span id="fridge-badge" class="ml-0.5 px-1.5 py-0.2 text-xs rounded-full bg-rose-100 text-rose-700 font-bold">4</span>
+                    </button>
+                    <button onclick="switchTab('wiki')" data-tab="wiki" class="nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap text-slate-600 hover:bg-slate-100">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                        식재료 보관 백과
+                    </button>
+                    <button onclick="switchTab('dev')" data-tab="dev" class="nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap text-slate-600 hover:bg-slate-100">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                        API 연동 & 창업 비전
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ===================================================================== -->
+        <!-- TAB 1: AI 신선도 스캔 (Roboflow Dataset + 공공데이터 연동 시뮬레이션) -->
+        <!-- ===================================================================== -->
+        <section id="tab-scan" class="tab-section space-y-6">
+            <!-- 상단 안내 배너 -->
+            <div class="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-5 sm:p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-emerald-50 text-xs font-medium mb-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+                    Gemini Vision AI + Roboflow Freshness 기준 + 공공데이터포털 DB
+                </div>
+                <h2 class="text-xl sm:text-2xl font-bold">식재료를 카메라로 찍거나 사진을 올려 신선도를 판별하세요</h2>
+                <p class="text-sm text-emerald-100 mt-1">AI 비전이 사진 속 식재료들의 위치와 부패 정도(Fresh / Eat Soon / Rotten)를 실시간 분석하고, 공공데이터 기준 맞춤 보관법과 잔여 소비기한을 알려줍니다.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0 w-full md:w-auto">
+                <!-- 모바일 후면 카메라 즉시 촬영 버튼 -->
+                <label class="flex-1 md:flex-initial justify-center cursor-pointer bg-white text-emerald-700 hover:bg-emerald-50 font-bold px-4 py-3 rounded-xl shadow-sm transition flex items-center gap-2 text-sm">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span>카메라로 직접 촬영</span>
+                    <input type="file" id="camera-capture" accept="image/*" capture="environment" class="hidden" onchange="handleImageUpload(event)">
+                </label>
+                <!-- 갤러리 / 파일 업로드 버튼 -->
+                <label class="flex-1 md:flex-initial justify-center cursor-pointer bg-emerald-800/70 hover:bg-emerald-800 text-white border border-emerald-400/40 font-bold px-4 py-3 rounded-xl shadow-sm transition flex items-center gap-2 text-sm">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span>앨범에서 선택</span>
+                    <input type="file" id="image-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                </label>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- 좌측: 카메라 프리뷰 / 드래그앤드롭 / 바운딩 박스 오버레이 -->
+            <div class="lg:col-span-6 space-y-4">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            테스트 샘플 사진 또는 직접 드래그 앤 드롭
+                        </h3>
+                        <span class="text-xs text-slate-400">실제 AI 비전 실시간 판별</span>
+                    </div>
+
+                    <!-- 샘플 프리셋 그리드 -->
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-4" id="preset-buttons">
+                        <!-- JS로 동적 생성 -->
+                    </div>
+
+                    <!-- 비전 분석 캔버스/뷰어 영역 (드래그 앤 드롭 지원) -->
+                    <div id="drop-zone" class="relative rounded-2xl overflow-hidden bg-slate-900 border-2 border-dashed border-slate-700 hover:border-emerald-400 transition aspect-[4/3] flex items-center justify-center shadow-inner group">
+                        <!-- 카메라 뷰파인더 코너 가이드 -->
+                        <div class="pointer-events-none absolute inset-3 z-10 flex flex-col justify-between opacity-60">
+                            <div class="flex justify-between">
+                                <span class="w-5 h-5 border-t-2 border-l-2 border-emerald-400 rounded-tl-md"></span>
+                                <span class="w-5 h-5 border-t-2 border-r-2 border-emerald-400 rounded-tr-md"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="w-5 h-5 border-b-2 border-l-2 border-emerald-400 rounded-bl-md"></span>
+                                <span class="w-5 h-5 border-b-2 border-r-2 border-emerald-400 rounded-br-md"></span>
+                            </div>
+                        </div>
+
+                        <!-- 스캔 빔 애니메이션 -->
+                        <div id="scan-beam" class="scanner-beam hidden z-20"></div>
+
+                        <!-- Canvas 렌더링 (업로드된 실제 사진 또는 고품질 테스트 이미지) -->
+                        <canvas id="vision-canvas" class="w-full h-full object-contain"></canvas>
+
+                        <!-- 다중 객체 탐지 Bounding Box 오버레이 컨테이너 -->
+                        <div id="bbox-layer" class="absolute inset-0 pointer-events-none z-10"></div>
+
+                        <!-- 추론 중 로딩 오버레이 -->
+                        <div id="inference-loader" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-xs z-30 flex flex-col items-center justify-center text-white px-4 text-center">
+                            <div class="w-11 h-11 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+                            <p class="text-sm font-bold text-emerald-300">Gemini Vision AI가 식재료를 정밀 스캔 중입니다...</p>
+                            <p class="text-xs text-slate-300 mt-1">표면 갈변·무름·곰팡이 여부 판별 및 공공데이터 소비기한 매칭 중</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-100">
+                        <span id="detection-summary">탐지된 식재료: <strong class="text-slate-800">1개</strong> (박스를 클릭해 상세 보기)</span>
+                        <span id="inference-time" class="font-medium text-emerald-700">AI 분석 완료</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 우측: 공공데이터포털 기반 맞춤 보관 가이드 & 액션 카드 -->
+            <div class="lg:col-span-6 space-y-4">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm h-full flex flex-col justify-between" id="analysis-result-card">
+                    <div>
+                        <!-- 다중 탐지 시 식재료 선택 칩 영역 -->
+                        <div id="detected-items-tabs" class="hidden flex-wrap items-center gap-1.5 pb-3 mb-3 border-b border-slate-100">
+                            <!-- 여러 식재료가 찍혔을 때 선택 버튼 렌더링 -->
+                        </div>
+
+                        <!-- 상태 배지 & 타이틀 -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span id="res-status-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Fresh · 신선함</span>
+                                    <span id="res-category-tag" class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">과일류</span>
+                                </div>
+                                <h3 id="res-title" class="text-2xl font-extrabold text-slate-900 mt-2">사과 (Apple)</h3>
+                            </div>
+                            <div class="text-right bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
+                                <p class="text-[11px] text-slate-500 font-medium">AI 보정 예상 보관기간</p>
+                                <p id="res-shelf-life" class="text-xl font-extrabold text-emerald-600">약 14일</p>
+                            </div>
+                        </div>
+
+                        <!-- 신선도 게이지 바 & AI 시각적 진단 근거 -->
+                        <div class="my-4 space-y-2">
+                            <div class="flex justify-between text-xs font-semibold">
+                                <span class="text-slate-600">AI 판별 신선도 지수</span>
+                                <span id="res-score-text" class="text-emerald-600">96% (Fresh)</span>
+                            </div>
+                            <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div id="res-score-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: 96%;"></div>
+                            </div>
+                            <p id="res-visual-reason" class="text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+                                🔍 <strong>AI 시각 진단:</strong> 껍질 표면의 윤기가 고르고 멍이나 갈변 반점이 관찰되지 않는 최상급 신선 상태입니다.
+                            </p>
+                        </div>
+
+                        <!-- 공공데이터포털 (농촌진흥청/식약처) 맞춤 보관법 안내 -->
+                        <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 space-y-3 my-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    공공데이터포털 표준 보관 가이드
+                                </span>
+                                <span class="text-[11px] text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">출처: 농촌진흥청·식품안전나라</span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2.5 text-sm">
+                                <div class="bg-white p-3 rounded-xl border border-emerald-100">
+                                    <p class="text-xs text-slate-400">권장 보관 구역 / 적정 온도</p>
+                                    <p id="res-storage-zone" class="font-bold text-slate-800 mt-0.5">냉장실 · 0~4℃</p>
+                                </div>
+                                <div class="bg-white p-3 rounded-xl border border-emerald-100">
+                                    <p class="text-xs text-slate-400">공공DB 표준 소비기한</p>
+                                    <p id="res-standard-days" class="font-bold text-slate-800 mt-0.5">구매 후 14~21일</p>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-3.5 rounded-xl border border-emerald-100 space-y-1.5">
+                                <p class="text-xs font-bold text-slate-700">💡 1인 가구 맞춤 보관 핵심 노하우</p>
+                                <p id="res-storage-tip" class="text-xs text-slate-600 leading-relaxed">
+                                    사과는 에틸렌 가스를 다량 방출하여 주변 채소와 과일을 빨리 시들게 합니다. 반드시 신문지나 랩으로 낱개 포장한 뒤 지퍼백에 밀봉하여 냉장실 야채칸에 단독 보관하세요.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 자취생 초간단 소비 레시피 추천 -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+                            <p class="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                                <span>🍳</span> 자취생 5분 컷 추천 활용 레시피
+                            </p>
+                            <p id="res-recipe" class="text-xs text-slate-600">
+                                아침 대용 사과 땅콩버터 토스트, 시나몬 애플 콤포트 (잔여 기한 임박 시 추천)
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 하단 액션 버튼 -->
+                    <div class="pt-5 mt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-2.5">
+                        <button id="btn-add-fridge" onclick="addCurrentToFridge()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition flex items-center justify-center gap-2 text-sm cursor-pointer">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                            <span>내 냉장고에 등록 (D-Day 알림)</span>
+                        </button>
+                        <button onclick="switchTab('wiki')" class="sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 px-4 rounded-xl transition text-sm cursor-pointer">
+                            전체 백과 보기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: 내 냉장고 관리 (D-Day 알림 & 식비 절약/탄소 저감 트래커)        -->
+    <!-- ===================================================================== -->
+        <!-- TAB 2: 내 냉장고 관리 (D-Day 알림 & 식비 절약/탄소 저감 트래커)        -->
+        <!-- ===================================================================== -->
+        <section id="tab-fridge" class="tab-section hidden space-y-6">
+            <!-- 임팩트 대시보드 (창업 가치 제안 지표) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">이번 달 방어한 식비 손실</p>
+                        <p class="text-2xl font-extrabold text-slate-900 mt-0.5"><span id="stat-money">38,500</span>원</p>
+                        <p class="text-[11px] text-emerald-600 font-medium mt-0.5">20대 1인가구 평균 폐기액 대비 74% 절감</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-teal-100 text-teal-600 flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">감소한 음식물 쓰레기</p>
+                        <p class="text-2xl font-extrabold text-slate-900 mt-0.5"><span id="stat-waste">4.2</span> kg</p>
+                        <p class="text-[11px] text-teal-600 font-medium mt-0.5">기한 내 알뜰 소비 완료 누적</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">탄소 배출 저감 효과</p>
+                        <p class="text-2xl font-extrabold text-slate-900 mt-0.5"><span id="stat-carbon">10.5</span> kg CO₂e</p>
+                        <p class="text-[11px] text-sky-600 font-medium mt-0.5">소나무 약 1.6그루 연간 흡수량</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 냉장고 필터 & 목록 -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900">내 자취방 식재료 인벤토리</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">소비기한 임박 순으로 자동 정렬되며, 소비 완료 시 절약 리포트에 반영됩니다.</p>
+                    </div>
+                    <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl self-start">
+                        <button onclick="filterFridge('ALL')" class="fridge-filter-btn active px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-xs">전체</button>
+                        <button onclick="filterFridge('냉장실')" class="fridge-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900">냉장실</button>
+                        <button onclick="filterFridge('냉동실')" class="fridge-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900">냉동실</button>
+                        <button onclick="filterFridge('실온')" class="fridge-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900">실온</button>
+                    </div>
+                </div>
+
+                <!-- 인벤토리 카드 리스트 -->
+                <div id="fridge-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+                    <!-- JS 렌더링 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 3: 식재료 보관 백과 (공공데이터포털 표준 데이터 기반)             -->
+        <!-- ===================================================================== -->
+        <section id="tab-wiki" class="tab-section hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 text-xs font-bold mb-1">
+                            공공데이터포털 (data.go.kr) 연계 데이터베이스
+                        </div>
+                        <h2 class="text-xl font-extrabold text-slate-900">식재료별 표준 보관법 & 소비기한 백과</h2>
+                        <p class="text-xs text-slate-500 mt-1">식품의약품안전처 소비기한 참고값 및 농촌진흥청 식재료 관리 데이터를 1인 가구 눈높이로 정리했습니다.</p>
+                    </div>
+
+                    <!-- 검색창 -->
+                    <div class="relative w-full md:w-72">
+                        <input type="text" id="wiki-search" oninput="renderWiki()" placeholder="식재료명 검색 (예: 대파, 두부, 닭가슴살)..." class="w-full pl-9 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 focus:bg-white transition">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+                </div>
+
+                <!-- 카테고리 필터 탭 -->
+                <div class="flex items-center gap-2 overflow-x-auto pb-3 mb-4 border-b border-slate-100">
+                    <button onclick="setWikiCategory('ALL')" class="wiki-cat-btn active px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 text-white">전체</button>
+                    <button onclick="setWikiCategory('과일류')" class="wiki-cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">과일류</button>
+                    <button onclick="setWikiCategory('채소류')" class="wiki-cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">채소류</button>
+                    <button onclick="setWikiCategory('육류/달걀')" class="wiki-cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">육류/달걀</button>
+                    <button onclick="setWikiCategory('유제품/가공')" class="wiki-cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">유제품/가공</button>
+                </div>
+
+                <!-- 백과 데이터 테이블 (모바일에서는 카드형 반응형) -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-xs font-bold text-slate-500 bg-slate-50/80">
+                                <th class="py-3 px-4 rounded-tl-xl">분류</th>
+                                <th class="py-3 px-4">식재료명</th>
+                                <th class="py-3 px-4">권장 보관법 (온도)</th>
+                                <th class="py-3 px-4">유통기한 vs <span class="text-emerald-600">소비기한</span></th>
+                                <th class="py-3 px-4 rounded-tr-xl">1인 가구 핵심 보관 노하우</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wiki-table-body" class="divide-y divide-slate-100 text-sm">
+                            <!-- JS 동적 생성 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 4: 구현 아키텍처 & 코드 가이드 (실제 API 연동 코드 + 창업 모델)   -->
+        <!-- ===================================================================== -->
+        <section id="tab-dev" class="tab-section hidden space-y-6">
+            <!-- 창업 아이디어 비즈니스 모델 요약 -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">Startup Business Model & Research Summary</span>
+                <h2 class="text-xl font-extrabold text-slate-900 mt-2">20대 1인 가구 타겟 '프레시킵(FreshKeep AI)' 창업 모델</h2>
+                <p class="text-sm text-slate-600 mt-1">식재료 관리 미숙으로 인한 경제적 손실과 음식물 쓰레기 문제를 AI 비전 기술과 공공데이터로 해결하는 ESG 푸드테크 서비스입니다.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-5">
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-xs font-bold text-emerald-600">01. 핵심 타겟 (Target)</p>
+                        <h4 class="font-bold text-slate-900 mt-1">20대 자취생·사회초년생</h4>
+                        <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">소량 식재료 구매 후 보관법을 몰라 버리는 비중이 높고, 스마트폰 카메라 활용에 익숙한 세대</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-xs font-bold text-emerald-600">02. 기술적 차별점 (Tech)</p>
+                        <h4 class="font-bold text-slate-900 mt-1">AI 비전 + 공공데이터 결합</h4>
+                        <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">Roboflow 객체 탐지로 외관 신선도를 정량화하고, 식약처 소비기한 데이터를 동적 보정하여 안내</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-xs font-bold text-emerald-600">03. 수익 모델 (BM)</p>
+                        <h4 class="font-bold text-slate-900 mt-1">B2C 커머스 & B2G ESG 연계</h4>
+                        <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">소분 식재료·밀폐용기 제휴 커머스 수수료, 지자체 음식물 쓰레기 감량 포인트(탄소중립포인트) 연동</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-xs font-bold text-emerald-600">04. 기대 효과 (Impact)</p>
+                        <h4 class="font-bold text-slate-900 mt-1">월 평균 3.5만원 식비 절감</h4>
+                        <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">1인 가구 연간 음식물 폐기물 약 40kg 감축 및 자취방 식생활 자립도 향상</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 실제 API 연동 파이썬/자바스크립트 구현 코드 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Roboflow API 연동 코드 -->
+                <div class="bg-slate-900 rounded-2xl p-5 text-slate-100 shadow-md flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-700">
+                            <div>
+                                <span class="text-xs font-bold text-emerald-400">STEP 1. Roboflow Inference API</span>
+                                <h3 class="text-sm font-bold text-white">식재료 신선도 분류 모델 호출 (Python)</h3>
+                            </div>
+                            <button onclick="copyCode('code-roboflow')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-emerald-300 border border-slate-600 transition cursor-pointer">코드 복사</button>
+                        </div>
+                        <pre id="code-roboflow" class="text-xs font-mono text-slate-300 overflow-x-auto leading-relaxed"><code>import requests
+
+# Roboflow 'food-freshness-classification-zu3j5-smeq4' API 설정
+API_KEY = "YOUR_ROBOFLOW_API_KEY"
+MODEL_ID = "food-freshness-classification-zu3j5-smeq4/1"
+IMAGE_PATH = "apple_sample.jpg"
+
+def predict_freshness(image_path):
+    url = f"https://detect.roboflow.com/{MODEL_ID}?api_key={API_KEY}"
+    with open(image_path, "rb") as img_file:
+        response = requests.post(url, files={"file": img_file})
+    
+    result = response.json()
+    for pred in result.get("predictions", []):
+        label = pred["class"]        # 예: Fresh_Apple, Rotten_Banana
+        confidence = pred["confidence"]
+        print(f"인식 결과: {label} (신뢰도: {confidence:.2%})")
+        return label, confidence
+    return None, 0.0</code></pre>
+                    </div>
+                </div>
+
+                <!-- 공공데이터포털 Open API 연동 코드 -->
+                <div class="bg-slate-900 rounded-2xl p-5 text-slate-100 shadow-md flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-700">
+                            <div>
+                                <span class="text-xs font-bold text-teal-400">STEP 2. 공공데이터포털 (data.go.kr) API</span>
+                                <h3 class="text-sm font-bold text-white">식품안전나라 소비기한·보관법 조회 (Python)</h3>
+                            </div>
+                            <button onclick="copyCode('code-public')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-teal-300 border border-slate-600 transition cursor-pointer">코드 복사</button>
+                        </div>
+                        <pre id="code-public" class="text-xs font-mono text-slate-300 overflow-x-auto leading-relaxed"><code>import requests
+
+# 공공데이터포털(식품의약품안전처 소비기한 참고값 / 농식품올바로)
+SERVICE_KEY = "YOUR_DATA_GO_KR_DECODED_KEY"
+ENDPOINT = "https://apis.data.go.kr/1471000/FoodExpirationService/getFoodExpList"
+
+def get_storage_guide(food_name, freshness_state):
+    params = {
+        "serviceKey": SERVICE_KEY,
+        "type": "json",
+        "PRDLST_NM": food_name,  # AI가 인식한 식재료명 매핑
+        "numOfRows": 5
+    }
+    res = requests.get(ENDPOINT, params=params).json()
+    items = res.get("body", {}).get("items", [])
+    
+    # 신선도 상태에 따른 잔여 소비기한 동적 보정 알고리즘
+    multiplier = 1.0 if "Fresh" in freshness_state else 0.25
+    return {
+        "storage_method": items[0].get("CSTDY_MTH", "냉장보관(0~4℃)"),
+        "adjusted_days": int(items[0].get("USE_BY_DAYS", 14) * multiplier)
+    }</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="bg-white border-t border-slate-200 mt-12 py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <p>© 2026 <strong class="text-slate-700">프레시킵 (FreshKeep AI)</strong> · 20대 1인 가구 식재료 낭비 저감 및 친환경 소비 연구 프로젝트</p>
+            <p>Data Powered by <span class="text-emerald-600 font-semibold">Roboflow Food Freshness Dataset</span> & <span class="text-teal-600 font-semibold">공공데이터포털 (data.go.kr)</span></p>
+        </div>
+    </footer>
+
+    <!-- ===================================================================== -->
+    <!-- JAVASCRIPT APPLICATION LOGIC                                          -->
+    <!-- ===================================================================== -->
+    <script>
+        // 1. 공공데이터포털 (식품안전나라 소비기한 참고값 & 농촌진흥청 식재료 관리) 내장 DB (20종 이상)
+        const PUBLIC_FOOD_DB = {
+            '사과': { en: 'Apple', category: '과일류', zone: '냉장실', temp: '0~4℃ (밀폐보관)', standardDays: '구매 후 14~21일', freshDays: 14, eatSoonDays: 4, price: 2500, weightG: 300, tip: '에틸렌 가스를 다량 방출해 주변 채소·과일을 빨리 시들게 합니다. 키친타월이나 랩으로 낱개 포장 후 지퍼백에 밀봉해 단독 냉장 보관하세요.', recipe: '사과 땅콩버터 토스트, 전자레인지 3분 시나몬 애플 콤포트' },
+            '바나나': { en: 'Banana', category: '과일류', zone: '실온', temp: '13~15℃ (서늘한 곳)', standardDays: '실온 5~7일', freshDays: 5, eatSoonDays: 2, price: 3500, weightG: 600, tip: '냉장 보관 시 저온 장해로 껍질이 검게 변합니다. 꼭지 부분을 랩으로 감싸 산소를 차단하고 바나나 걸이에 걸어 실온 보관하세요. 과숙 시 껍질을 벗겨 냉동하세요.', recipe: '바나나 오트밀 팬케이크, 냉동 바나나 우유 스무디' },
+            '토마토': { en: 'Tomato', category: '채소류', zone: '냉장실', temp: '5~8℃ (완숙 후 냉장)', standardDays: '실온/냉장 7~14일', freshDays: 10, eatSoonDays: 2, price: 4000, weightG: 500, tip: '완숙 토마토는 꼭지를 떼어낸 뒤 키친타월로 감싸 서로 닿지 않게 냉장 보관하면 무름과 곰팡이를 예방할 수 있습니다.', recipe: '자취생 5분 토마토 달걀 볶음(토달볶), 카프레제 샐러드' },
+            '감자': { en: 'Potato', category: '채소류', zone: '실온', temp: '8~10℃ (차광 보관)', standardDays: '서늘한 실온 20~30일', freshDays: 21, eatSoonDays: 5, price: 3000, weightG: 800, tip: '햇빛을 받으면 솔라닌 독소가 생기고 녹색으로 변합니다. 검은 봉지나 종이박스에 사과 1알과 함께 넣어두면 싹이 트는 것을 막을 수 있습니다.', recipe: '전자레인지 버터 알감자 구이, 감자채 볶음' },
+            '당근': { en: 'Carrot', category: '채소류', zone: '냉장실', temp: '0~4℃ (수분 차단)', standardDays: '냉장 14~21일', freshDays: 14, eatSoonDays: 4, price: 2000, weightG: 400, tip: '물기를 닦아낸 뒤 키친타월이나 신문지에 하나씩 감싸 세워서 냉장 보관하면 수분 증발과 썩음을 동시에 방지할 수 있습니다.', recipe: '당근 라페 샌드위치, 참치 당근 볶음밥' },
+            '양파': { en: 'Onion', category: '채소류', zone: '실온', temp: '서늘한 통풍 실온', standardDays: '실온 20~30일', freshDays: 20, eatSoonDays: 4, price: 2500, weightG: 600, tip: '습기에 매우 약하므로 껍질째 양파망이나 스타킹에 넣어 통풍이 잘되는 곳에 매달아 두세요. 껍질을 깐 양파는 랩으로 밀봉해 냉장 보관하세요.', recipe: '간장 양파 덮밥, 양파 계란국' },
+            '대파': { en: 'Green Onion', category: '채소류', zone: '냉장실', temp: '0~4℃ / 소분 냉동', standardDays: '냉장 10~14일', freshDays: 12, eatSoonDays: 3, price: 2500, weightG: 350, tip: '뿌리를 자르고 물기를 완전히 제거한 뒤 키친타월을 깐 밀폐용기에 세워 보관하거나, 송송 썰어 지퍼백에 평평하게 펴서 냉동하세요.', recipe: '파기름 계란볶음밥, 대파 라면' },
+            '계란': { en: 'Egg', category: '육류/달걀', zone: '냉장실', temp: '0~4℃ (안쪽 선반)', standardDays: '소비기한 최대 45일', freshDays: 25, eatSoonDays: 5, price: 6500, weightG: 600, tip: '냉장고 문 쪽은 온도 변화가 크므로 안쪽 선반에 둥근 부분(기실)이 위로 향하도록 보관하고, 절대 물로 씻지 마세요.', recipe: '간장 계란밥, 전자레인지 계란찜' },
+            '우유': { en: 'Milk', category: '유제품/가공', zone: '냉장실', temp: '0~4℃ (밀봉 냉장)', standardDays: '소비기한 14일 (개봉 후 3일)', freshDays: 7, eatSoonDays: 2, price: 2800, weightG: 1000, tip: '문 쪽보다 온도가 낮은 냉장실 안쪽에 보관하고, 개봉 후에는 입구를 단단히 닫아 3일 이내 섭취를 권장합니다.', recipe: '오트밀 밀크 죽, 크림 파스타 소스' },
+            '두부': { en: 'Tofu', category: '유제품/가공', zone: '냉장실', temp: '0~4℃ (침수 보관)', standardDays: '소비기한 23일 (개봉 후 3일)', freshDays: 10, eatSoonDays: 2, price: 1800, weightG: 300, tip: '개봉 후 남은 두부는 밀폐용기에 담아 두부가 잠길 만큼 생수를 붓고 소금을 약간 넣어 냉장 보관하면 신선도가 유지됩니다.', recipe: '두부 김치, 간장 두부조림' },
+            '상추': { en: 'Lettuce', category: '채소류', zone: '냉장실', temp: '0~4℃ (세워 보관)', standardDays: '냉장 5~7일', freshDays: 5, eatSoonDays: 1, price: 2000, weightG: 200, tip: '물에 씻지 않은 상태로 키친타월로 감싸 지퍼백에 넣은 뒤, 줄기 부분이 아래로 향하게 세워 보관하면 아삭함이 오래갑니다.', recipe: '상추 겉절이, 참치 비빔밥' },
+            '오이': { en: 'Cucumber', category: '채소류', zone: '냉장실', temp: '7~10℃ (야채칸)', standardDays: '냉장 7~10일', freshDays: 7, eatSoonDays: 2, price: 2000, weightG: 300, tip: '물기를 닦아 키친타월과 랩으로 하나씩 감싼 뒤 꼭지가 위로 가도록 세워 보관하면 무름을 방지할 수 있습니다.', recipe: '오이 참치 비빔밥, 오이무침' },
+            '애호박': { en: 'Zucchini', category: '채소류', zone: '냉장실', temp: '5~8℃ (야채칸)', standardDays: '냉장 7~10일', freshDays: 7, eatSoonDays: 2, price: 2000, weightG: 350, tip: '물기가 닿으면 쉽게 무르므로 마른 키친타월로 감싸 비닐백에 넣어 보관하고, 자른 단면은 랩으로 꽉 밀착시키세요.', recipe: '애호박 새우젓 볶음, 된장찌개' },
+            '버섯': { en: 'Mushroom', category: '채소류', zone: '냉장실', temp: '0~4℃ (습기 차단)', standardDays: '냉장 5~7일', freshDays: 5, eatSoonDays: 1, price: 2000, weightG: 250, tip: '버섯은 수분에 취약하므로 절대 씻지 말고 키친타월로 감싸 밀폐용기나 종이봉투에 넣어 냉장 보관하세요.', recipe: '버터 간장 버섯 덮밥, 버섯 들깨볶음' },
+            '딸기': { en: 'Strawberry', category: '과일류', zone: '냉장실', temp: '0~4℃ (꼭지 유지)', standardDays: '냉장 3~5일', freshDays: 4, eatSoonDays: 1, price: 6500, weightG: 500, tip: '물에 닿으면 곰팡이가 급속도로 번지므로 씻지 말고 꼭지를 떼지 않은 상태로 키친타월을 깐 용기에 겹치지 않게 보관하세요.', recipe: '딸기 요거트 볼, 딸기 라떼' },
+            '귤': { en: 'Mandarin', category: '과일류', zone: '실온', temp: '3~8℃ (통풍 보관)', standardDays: '10~14일', freshDays: 10, eatSoonDays: 3, price: 4000, weightG: 1000, tip: '귤끼리 맞닿으면 습기로 인해 곰팡이가 생기기 쉽습니다. 바닥에 신문지나 키친타월을 깔고 겹치지 않게 펼쳐 보관하세요.', recipe: '생과일 귤 주스, 귤 샐러드' },
+            '고구마': { en: 'Sweet Potato', category: '채소류', zone: '실온', temp: '12~15℃ (상온 보관)', standardDays: '실온 20~30일', freshDays: 20, eatSoonDays: 5, price: 4500, weightG: 1000, tip: '냉장고에 넣으면 냉해를 입어 금방 썩습니다. 신문지에 싸서 통풍이 잘되는 서늘한 실내 상온에 보관하세요.', recipe: '에어프라이어 군고구마, 고구마 맛탕' },
+            '마늘': { en: 'Garlic', category: '채소류', zone: '냉장실', temp: '0~4℃ / 다진마늘 냉동', standardDays: '깐마늘 냉장 10일 / 냉동 30일', freshDays: 10, eatSoonDays: 3, price: 3500, weightG: 300, tip: '깐 마늘은 밀폐용기 바닥에 설탕이나 키친타월을 깔아 습기를 흡수시키면 무르지 않고 오래 보관할 수 있습니다.', recipe: '알리오 올리오 파스타, 마늘 볶음밥' },
+            '닭가슴살': { en: 'Chicken Breast', category: '육류/달걀', zone: '냉동실', temp: '-18℃ 이하 (냉장 1~2일)', standardDays: '냉장 2일 / 냉동 30일', freshDays: 2, eatSoonDays: 1, price: 4500, weightG: 300, tip: '생닭은 변질이 매우 빠르므로 당일 조리하지 않을 분량은 1회 섭취량씩 랩으로 밀봉해 지퍼백에 넣어 즉시 냉동 보관하세요.', recipe: '닭가슴살 데리야끼 덮밥, 닭가슴살 샐러드' },
+            '돼지고기': { en: 'Pork', category: '육류/달걀', zone: '냉동실', temp: '-18℃ 이하 (냉장 2~3일)', standardDays: '냉장 3일 / 냉동 30일', freshDays: 3, eatSoonDays: 1, price: 7000, weightG: 400, tip: '키친타월로 핏물을 닦아낸 뒤 표면에 식용유를 살짝 발라 랩으로 공기를 차단해 냉동하면 산패와 냉동 화상을 막을 수 있습니다.', recipe: '김치 제육볶음, 대패 삼겹 숙주볶음' }
+        };
+
+        // 2. 원클릭 테스트용 샘플 데이터셋 (Roboflow Food Freshness 기준)
+        const ROBOFLOW_SAMPLES = [
+            {
+                id: 'fresh_apple',
+                nameKo: '사과',
+                nameEn: 'Apple',
+                freshness: 'Fresh',
+                confidence: 96,
+                visualReason: '껍질 표면의 윤기가 고르고 멍이나 갈변 반점이 전혀 관찰되지 않는 최상급 신선 상태입니다.',
+                bbox: [180, 220, 820, 780],
+                colorPalette: { main: '#ef4444', highlight: '#fca5a5', leaf: '#22c55e', spot: null }
+            },
+            {
+                id: 'eatsoon_banana',
+                nameKo: '바나나',
+                nameEn: 'Banana',
+                freshness: 'Eat Soon',
+                confidence: 89,
+                visualReason: '껍질에 슈가스팟(갈색 반점)이 다수 나타나 당도가 최고조에 달했으나 빠른 섭취 또는 냉동 소분이 필요합니다.',
+                bbox: [200, 180, 800, 820],
+                colorPalette: { main: '#eab308', highlight: '#fef08a', leaf: '#65a30d', spot: '#713f12' }
+            },
+            {
+                id: 'rotten_tomato',
+                nameKo: '토마토',
+                nameEn: 'Tomato',
+                freshness: 'Rotten',
+                confidence: 94,
+                visualReason: '과육 표면에 어두운 변색과 무름 현상, 백색 곰팡이 흔적이 감지되어 즉시 폐기가 권장됩니다.',
+                bbox: [180, 220, 820, 780],
+                colorPalette: { main: '#7f1d1d', highlight: '#991b1b', leaf: '#365314', spot: '#e5e7eb' }
+            },
+            {
+                id: 'fresh_potato',
+                nameKo: '감자',
+                nameEn: 'Potato',
+                freshness: 'Fresh',
+                confidence: 93,
+                visualReason: '표피가 단단하고 녹변 현상이나 발아가 관찰되지 않아 서늘한 차광 보관 시 장기간 보관이 가능합니다.',
+                bbox: [220, 200, 780, 800],
+                colorPalette: { main: '#d97706', highlight: '#fbbf24', leaf: null, spot: '#92400e' }
+            }
+        ];
+
+        // 3. 내 냉장고 상태 (localStorage 연동)
+        const STORAGE_KEY_ITEMS = 'freshkeep_fridge_items_v2';
+        const STORAGE_KEY_STATS = 'freshkeep_saved_stats_v2';
+
+        let myFridgeItems = JSON.parse(localStorage.getItem(STORAGE_KEY_ITEMS)) || [
+            { id: 101, name: '딸기 (1팩)', zone: '냉장실', dDay: 1, price: 6500, weight: 0.5, tip: '씻지 말고 키친타월 깔아 보관' },
+            { id: 102, name: '닭가슴살 (소분)', zone: '냉장실', dDay: 2, price: 4500, weight: 0.3, tip: '미섭취 시 즉시 냉동실 이동' },
+            { id: 103, name: '바나나', zone: '실온', dDay: 4, price: 3500, weight: 0.6, tip: '꼭지 랩핑 후 바나나 걸이 보관' },
+            { id: 104, name: '사과 (AI 스캔등록)', zone: '냉장실', dDay: 14, price: 2500, weight: 0.3, tip: '에틸렌 차단 낱개 밀봉 보관' }
+        ];
+
+        let savedStats = JSON.parse(localStorage.getItem(STORAGE_KEY_STATS)) || {
+            money: 38500,
+            waste: 4.2,
+            carbon: 10.5
+        };
+
+        let detectedResults = [];      // 현재 이미지에서 탐지된 식재료 배열
+        let selectedResultIndex = 0;   // 현재 상세 카드로 보고 있는 인덱스
+        let currentFridgeFilter = 'ALL';
+        let currentWikiCategory = 'ALL';
+        let uploadedPhotoImage = null; // 실제 사용자가 올린 Image 객체
+
+        function saveToLocalStorage() {
+            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(myFridgeItems));
+            localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(savedStats));
+        }
+
+        // 초기화 실행
+        window.addEventListener('DOMContentLoaded', () => {
+            renderPresetButtons();
+            setupDragAndDrop();
+            runSamplePreset(ROBOFLOW_SAMPLES[0], false);
+            updateStatsUI();
+            renderFridge();
+            renderWiki();
+        });
+
+        // 드래그 앤 드롭 이벤트 바인딩
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evtName => {
+                dropZone.addEventListener(evtName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+            dropZone.addEventListener('dragover', () => dropZone.classList.add('border-emerald-400', 'bg-slate-800'));
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-emerald-400', 'bg-slate-800'));
+            dropZone.addEventListener('drop', e => {
+                dropZone.classList.remove('border-emerald-400', 'bg-slate-800');
+                const file = e.dataTransfer.files?.[0];
+                if (file && file.type.startsWith('image/')) {
+                    processUploadedFile(file);
+                } else {
+                    showToast('이미지 파일(JPG, PNG, WEBP)만 업로드할 수 있습니다.', 'warn');
+                }
+            });
+        }
+
+        // 탭 전환 함수
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-section').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabId) {
+                    btn.classList.add('bg-emerald-600', 'text-white', 'shadow-sm');
+                    btn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+                } else {
+                    btn.classList.remove('bg-emerald-600', 'text-white', 'shadow-sm');
+                    btn.classList.add('text-slate-600', 'hover:bg-slate-100');
+                }
+            });
+        }
+
+        // 토스트 메시지 표시 (alert 대체)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : (type === 'warn' ? 'bg-amber-600' : 'bg-rose-600');
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 transition-all duration-300 transform translate-y-2 opacity-0`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '⚠️'}</span><span>${message}</span>`;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        // 샘플 프리셋 버튼 생성
+        function renderPresetButtons(activeId = null) {
+            const container = document.getElementById('preset-buttons');
+            container.innerHTML = ROBOFLOW_SAMPLES.map(sample => {
+                const badgeStyle = sample.freshness === 'Fresh'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : (sample.freshness === 'Eat Soon' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-700');
+                const isSelected = activeId === sample.id;
+                return `
+                    <button onclick="selectSampleById('${sample.id}')" 
+                        class="text-left p-2.5 rounded-xl border text-xs transition cursor-pointer flex flex-col justify-between ${isSelected ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 hover:border-emerald-300 bg-white'}">
+                        <span class="font-bold text-slate-800 truncate">샘플: ${sample.nameKo}</span>
+                        <span class="mt-1 inline-block text-[10px] font-bold px-1.5 py-0.5 rounded w-fit ${badgeStyle}">
+                            ${sample.freshness}
+                        </span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectSampleById(id) {
+            const found = ROBOFLOW_SAMPLES.find(s => s.id === id);
+            if (found) {
+                uploadedPhotoImage = null;
+                runSamplePreset(found, true);
+            }
+        }
+
+        // 샘플 프리셋 실행
+        function runSamplePreset(sample, animate = true) {
+            renderPresetButtons(sample.id);
+            const loader = document.getElementById('inference-loader');
+            const beam = document.getElementById('scan-beam');
+            const bboxLayer = document.getElementById('bbox-layer');
+
+            if (animate) {
+                loader.classList.remove('hidden');
+                beam.classList.remove('hidden');
+                bboxLayer.innerHTML = '';
+            }
+
+            drawSampleOnCanvas(sample);
+
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                beam.classList.add('hidden');
+
+                const enriched = enrichWithPublicDB({
+                    nameKo: sample.nameKo,
+                    nameEn: sample.nameEn,
+                    freshness: sample.freshness,
+                    confidence: sample.confidence,
+                    visualReason: sample.visualReason,
+                    bbox: sample.bbox
+                });
+                detectedResults = [enriched];
+                selectedResultIndex = 0;
+                renderBoundingBoxes();
+                renderSelectedDetail();
+                document.getElementById('inference-time').textContent = '샘플 추론 완료 (38ms)';
+            }, animate ? 450 : 0);
+        }
+
+        // 카메라 촬영 / 파일 업로드 핸들러
+        function handleImageUpload(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            processUploadedFile(file);
+            event.target.value = ''; // 동일 파일 재선택 허용
+        }
+
+        // 업로드된 실제 사진을 리사이즈하여 Canvas에 그리고 Gemini API로 전송
+        function processUploadedFile(file) {
+            renderPresetButtons(null);
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = async function() {
+                    uploadedPhotoImage = img;
+                    drawUploadedPhotoOnCanvas(img);
+
+                    // API 전송용 리사이즈 Base64 생성 (최대 1024px로 속도 및 안정성 최적화)
+                    const base64Data = resizeImageToBase64(img, 1024);
+                    await analyzePhotoWithGemini(base64Data);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resizeImageToBase64(img, maxDim) {
+            const tempCanvas = document.createElement('canvas');
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+                if (w > h) {
+                    h = Math.round((h * maxDim) / w);
+                    w = maxDim;
+                } else {
+                    w = Math.round((w * maxDim) / h);
+                    h = maxDim;
+                }
+            }
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            return tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+        }
+
+        // 실제 사용자 사진을 메인 Canvas에 선명하게 그리기
+        function drawUploadedPhotoOnCanvas(img) {
+            const canvas = document.getElementById('vision-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 800;
+            canvas.height = 600;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+            const drawW = img.width * scale;
+            const drawH = img.height * scale;
+            const offsetX = (canvas.width - drawW) / 2;
+            const offsetY = (canvas.height - drawH) / 2;
+
+            ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+            canvas.dataset.offsetX = offsetX / canvas.width;
+            canvas.dataset.offsetY = offsetY / canvas.height;
+            canvas.dataset.drawW = drawW / canvas.width;
+            canvas.dataset.drawH = drawH / canvas.height;
+        }
+
+        // 샘플 일러스트 그리기
+        function drawSampleOnCanvas(sample) {
+            const canvas = document.getElementById('vision-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 800;
+            canvas.height = 600;
+
+            canvas.dataset.offsetX = 0;
+            canvas.dataset.offsetY = 0;
+            canvas.dataset.drawW = 1;
+            canvas.dataset.drawH = 1;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2 + 15;
+            const p = sample.colorPalette;
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + 115, 115, 26, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (sample.id.includes('apple') || sample.id.includes('tomato')) {
+                ctx.fillStyle = p.main;
+                ctx.beginPath();
+                ctx.arc(cx - 32, cy, 88, 0, Math.PI * 2);
+                ctx.arc(cx + 32, cy, 88, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = p.highlight;
+                ctx.globalAlpha = 0.35;
+                ctx.beginPath();
+                ctx.ellipse(cx - 52, cy - 34, 22, 40, -0.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+
+                ctx.strokeStyle = '#78350f';
+                ctx.lineWidth = 7;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - 76);
+                ctx.quadraticCurveTo(cx + 6, cy - 115, cx + 22, cy - 124);
+                ctx.stroke();
+
+                if (p.leaf) {
+                    ctx.fillStyle = p.leaf;
+                    ctx.beginPath();
+                    ctx.ellipse(cx + 32, cy - 102, 28, 13, 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (sample.id.includes('banana')) {
+                ctx.strokeStyle = p.main;
+                ctx.lineWidth = 54;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.arc(cx - 12, cy - 42, 130, 0.25 * Math.PI, 0.82 * Math.PI);
+                ctx.stroke();
+
+                ctx.strokeStyle = p.highlight;
+                ctx.lineWidth = 14;
+                ctx.globalAlpha = 0.45;
+                ctx.beginPath();
+                ctx.arc(cx - 12, cy - 42, 118, 0.32 * Math.PI, 0.75 * Math.PI);
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+            } else if (sample.id.includes('potato')) {
+                ctx.fillStyle = p.main;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 120, 82, -0.15, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = p.spot;
+                [[-45, -20], [32, 22], [-15, 34], [50, -25]].forEach(([dx, dy]) => {
+                    ctx.beginPath();
+                    ctx.arc(cx + dx, cy + dy, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            if (p.spot && sample.freshness !== 'Fresh') {
+                ctx.fillStyle = p.spot;
+                ctx.globalAlpha = 0.8;
+                ctx.beginPath();
+                ctx.arc(cx + 28, cy + 18, 34, 0, Math.PI * 2);
+                ctx.arc(cx - 22, cy + 30, 22, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+            ctx.restore();
+        }
+
+        // =====================================================================
+        // Gemini Vision API 호출 (실제 사진 속 식재료 & 신선도 판별)
+        // =====================================================================
+        async function analyzePhotoWithGemini(base64ImageData) {
+            const loader = document.getElementById('inference-loader');
+            const beam = document.getElementById('scan-beam');
+            const bboxLayer = document.getElementById('bbox-layer');
+
+            loader.classList.remove('hidden');
+            beam.classList.remove('hidden');
+            bboxLayer.innerHTML = '';
+
+            const startTime = performance.now();
+            const apiKey = ""; // 런타임 자동 주입
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `당신은 Roboflow 'Food Freshness Classification' 데이터셋과 대한민국 공공데이터포털(식품안전나라, 농촌진흥청) 기준을 결합한 AI 식재료 신선도 판별 전문가입니다.
+사용자가 촬영한 사진 속 모든 식재료를 탐지하고, 각 식재료의 외관 상태(색상, 광택, 갈변, 시듦, 무름, 곰팡이 등)를 정밀 분석하여 JSON 형식으로만 응답하세요.
+만약 사진에 식재료가 전혀 없다면 items 배열을 빈 배열([])로 반환하세요.`;
+
+            const userPrompt = `이 사진 속 식재료들을 모두 찾아서 각각의 한국어 이름, 영어 이름, 신선도 등급('Fresh', 'Eat Soon', 'Rotten' 중 택1), 신선도 점수(0~100 정수), 시각적 판별 근거, 정규화된 바운딩 박스 좌표([ymin, xmin, ymax, xmax], 0~1000 범위), 그리고 공공데이터포털 기준 권장 보관구역('냉장실', '냉동실', '실온' 중 택1), 적정온도, 표준소비기한, 신선도 반영 잔여예상보관일수(정수, 폐기권장 시 0), 1인가구 보관 노하우, 5분 자취 레시피를 JSON으로 반환해줘.`;
+
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: userPrompt },
+                        { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
+                    ]
+                }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            items: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        nameKo: { type: "STRING" },
+                                        nameEn: { type: "STRING" },
+                                        category: { type: "STRING" },
+                                        freshness: { type: "STRING", enum: ["Fresh", "Eat Soon", "Rotten"] },
+                                        confidence: { type: "INTEGER" },
+                                        visualReason: { type: "STRING" },
+                                        bbox: { type: "ARRAY", items: { type: "INTEGER" } },
+                                        fallbackZone: { type: "STRING" },
+                                        fallbackTemp: { type: "STRING" },
+                                        fallbackStandardDays: { type: "STRING" },
+                                        fallbackRemainingDays: { type: "INTEGER" },
+                                        fallbackTip: { type: "STRING" },
+                                        fallbackRecipe: { type: "STRING" }
+                                    },
+                                    required: ["nameKo", "nameEn", "freshness", "confidence", "visualReason", "bbox"]
+                                }
+                            }
+                        },
+                        required: ["items"]
+                    }
+                }
+            };
+
+            try {
+                const response = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!rawText) throw new Error("AI 응답 데이터가 비어 있습니다.");
+
+                const parsed = JSON.parse(rawText);
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+
+                loader.classList.add('hidden');
+                beam.classList.add('hidden');
+
+                if (!parsed.items || parsed.items.length === 0) {
+                    showToast('사진에서 식재료를 찾지 못했습니다. 식재료가 잘 보이도록 다시 촬영해 주세요.', 'warn');
+                    document.getElementById('detection-summary').innerHTML = `탐지된 식재료: <strong class="text-rose-600">0개</strong>`;
+                    return;
+                }
+
+                detectedResults = parsed.items.map(item => enrichWithPublicDB(item));
+                selectedResultIndex = 0;
+
+                renderBoundingBoxes();
+                renderSelectedDetail();
+                document.getElementById('inference-time').textContent = `Gemini Vision 분석 완료 (${elapsed}초)`;
+                showToast(`총 ${detectedResults.length}개의 식재료 신선도 판별이 완료되었습니다!`);
+
+            } catch (err) {
+                loader.classList.add('hidden');
+                beam.classList.add('hidden');
+                console.error(err);
+                showToast('AI 이미지 분석 중 일시적인 오류가 발생했습니다. 다시 시도해 주세요.', 'error');
+            }
+        }
+
+        // Exponential Backoff Fetch Helper
+        async function fetchWithBackoff(url, options, retries = 3, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const res = await fetch(url, options);
+                    if (res.ok) return res;
+                    if (res.status === 429 || res.status >= 500) {
+                        await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
+                        continue;
+                    }
+                    throw new Error(`HTTP Error: ${res.status}`);
+                } catch (e) {
+                    if (i === retries - 1) throw e;
+                    await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
+                }
+            }
+        }
+
+        // 공공데이터포털 내장 DB와 매칭 및 신선도 상태에 따른 잔여 소비기한 동적 보정
+        function enrichWithPublicDB(aiItem) {
+            // 한국어 식재료명으로 공공DB 키워드 매칭
+            const matchedKey = Object.keys(PUBLIC_FOOD_DB).find(key =>
+                aiItem.nameKo.includes(key) || key.includes(aiItem.nameKo)
+            );
+            const db = matchedKey ? PUBLIC_FOOD_DB[matchedKey] : null;
+
+            let remainingDays = 0;
+            if (aiItem.freshness === 'Rotten') {
+                remainingDays = 0;
+            } else if (db) {
+                remainingDays = aiItem.freshness === 'Fresh' ? db.freshDays : db.eatSoonDays;
+            } else {
+                remainingDays = aiItem.fallbackRemainingDays ?? (aiItem.freshness === 'Fresh' ? 7 : 2);
+            }
+
+            return {
+                nameKo: aiItem.nameKo,
+                nameEn: db ? db.en : (aiItem.nameEn || 'Produce'),
+                category: db ? db.category : (aiItem.category || '신선식품'),
+                freshness: aiItem.freshness,
+                confidence: Math.min(99, Math.max(10, aiItem.confidence || 90)),
+                visualReason: aiItem.visualReason,
+                bbox: (Array.isArray(aiItem.bbox) && aiItem.bbox.length === 4) ? aiItem.bbox : [180, 200, 820, 800],
+                storageZone: aiItem.freshness === 'Rotten' ? '폐기 대상' : (db ? db.zone : (aiItem.fallbackZone || '냉장실')),
+                storageTemp: aiItem.freshness === 'Rotten' ? '보관 불가' : (db ? db.temp : (aiItem.fallbackTemp || '0~4℃')),
+                standardDays: db ? db.standardDays : (aiItem.fallbackStandardDays || '구매 후 7~10일'),
+                remainingDays: remainingDays,
+                storageTip: db ? db.tip : (aiItem.fallbackTip || '물기를 제거한 뒤 밀폐용기나 지퍼백에 소분하여 냉장 보관하세요.'),
+                recipe: db ? db.recipe : (aiItem.fallbackRecipe || '볶음밥이나 된장찌개, 샐러드 재료로 빠르게 활용해 보세요.'),
+                priceValue: db ? db.price : 3000,
+                weightKg: db ? +(db.weightG / 1000).toFixed(2) : 0.35
+            };
+        }
+
+        // 실제 사진 위에 탐지 바운딩 박스 오버레이 그리기
+        function renderBoundingBoxes() {
+            const layer = document.getElementById('bbox-layer');
+            const canvas = document.getElementById('vision-canvas');
+            const ox = parseFloat(canvas.dataset.offsetX || 0);
+            const oy = parseFloat(canvas.dataset.offsetY || 0);
+            const dw = parseFloat(canvas.dataset.drawW || 1);
+            const dh = parseFloat(canvas.dataset.drawH || 1);
+
+            layer.innerHTML = detectedResults.map((item, idx) => {
+                const [ymin, xmin, ymax, xmax] = item.bbox;
+                const leftPct = (ox + (xmin / 1000) * dw) * 100;
+                const topPct = (oy + (ymin / 1000) * dh) * 100;
+                const widthPct = Math.max(8, ((xmax - xmin) / 1000) * dw * 100);
+                const heightPct = Math.max(8, ((ymax - ymin) / 1000) * dh * 100);
+
+                const isSelected = idx === selectedResultIndex;
+                let borderCol = 'border-emerald-400 bg-emerald-400/10';
+                let labelBg = 'bg-emerald-600';
+                if (item.freshness === 'Eat Soon') {
+                    borderCol = 'border-amber-400 bg-amber-400/15';
+                    labelBg = 'bg-amber-600';
+                } else if (item.freshness === 'Rotten') {
+                    borderCol = 'border-rose-500 bg-rose-500/20';
+                    labelBg = 'bg-rose-600';
+                }
+
+                return `
+                    <div onclick="selectDetectedItem(${idx})"
+                        class="pointer-events-auto cursor-pointer absolute border-2 ${borderCol} ${isSelected ? 'ring-2 ring-white shadow-lg z-20' : 'opacity-85 hover:opacity-100 z-10'} rounded-lg transition-all"
+                        style="top: ${topPct}%; left: ${leftPct}%; width: ${widthPct}%; height: ${heightPct}%;">
+                        <div class="absolute -top-6 left-0 px-2 py-0.5 rounded text-[11px] font-bold text-white ${labelBg} shadow whitespace-nowrap flex items-center gap-1">
+                            <span>${item.nameKo}</span>
+                            <span class="bg-black/25 px-1 rounded text-[10px]">${item.freshness} ${item.confidence}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('detection-summary').innerHTML = `탐지된 식재료: <strong class="text-slate-800">${detectedResults.length}개</strong> (박스 클릭 시 상세 보관법 전환)`;
+        }
+
+        function selectDetectedItem(index) {
+            selectedResultIndex = index;
+            renderBoundingBoxes();
+            renderSelectedDetail();
+        }
+
+        // 우측 상세 결과 카드 렌더링
+        function renderSelectedDetail() {
+            const item = detectedResults[selectedResultIndex];
+            if (!item) return;
+
+            // 다중 식재료 선택 탭 표시
+            const tabsEl = document.getElementById('detected-items-tabs');
+            if (detectedResults.length > 1) {
+                tabsEl.classList.remove('hidden');
+                tabsEl.classList.add('flex');
+                tabsEl.innerHTML = `<span class="text-xs font-bold text-slate-400 mr-1">인식된 항목:</span>` + detectedResults.map((d, idx) => `
+                    <button onclick="selectDetectedItem(${idx})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${idx === selectedResultIndex ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                        ${idx + 1}. ${d.nameKo} (${d.freshness})
+                    </button>
+                `).join('');
+            } else {
+                tabsEl.classList.add('hidden');
+                tabsEl.classList.remove('flex');
+            }
+
+            // 상태 배지
+            const badge = document.getElementById('res-status-badge');
+            if (item.freshness === 'Fresh') {
+                badge.textContent = 'Fresh · 신선함';
+                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800';
+            } else if (item.freshness === 'Eat Soon') {
+                badge.textContent = 'Eat Soon · 빠른 섭취 권장';
+                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800';
+            } else {
+                badge.textContent = 'Rotten · 부패/폐기 권장';
+                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800';
+            }
+
+            document.getElementById('res-category-tag').textContent = item.category;
+            document.getElementById('res-title').textContent = `${item.nameKo} (${item.nameEn})`;
+
+            const shelfEl = document.getElementById('res-shelf-life');
+            if (item.remainingDays > 0) {
+                shelfEl.textContent = `약 ${item.remainingDays}일`;
+                shelfEl.className = item.freshness === 'Fresh' ? 'text-xl font-extrabold text-emerald-600' : 'text-xl font-extrabold text-amber-600';
+            } else {
+                shelfEl.textContent = '즉시 폐기 (0일)';
+                shelfEl.className = 'text-xl font-extrabold text-rose-600';
+            }
+
+            // 신선도 게이지 및 근거
+            const displayScore = item.freshness === 'Fresh' ? Math.max(85, item.confidence) : (item.freshness === 'Eat Soon' ? 55 : 18);
+            document.getElementById('res-score-text').textContent = `${displayScore}점 / 100점 (${item.freshness})`;
+            const bar = document.getElementById('res-score-bar');
+            bar.style.width = `${displayScore}%`;
+            bar.className = item.freshness === 'Fresh'
+                ? 'h-full bg-emerald-500 rounded-full transition-all duration-500'
+                : (item.freshness === 'Eat Soon' ? 'h-full bg-amber-500 rounded-full transition-all duration-500' : 'h-full bg-rose-500 rounded-full transition-all duration-500');
+
+            document.getElementById('res-visual-reason').innerHTML = `🔍 <strong>AI 시각 진단:</strong> ${item.visualReason}`;
+            document.getElementById('res-storage-zone').textContent = `${item.storageZone} · ${item.storageTemp}`;
+            document.getElementById('res-standard-days').textContent = item.standardDays;
+            document.getElementById('res-storage-tip').textContent = item.storageTip;
+            document.getElementById('res-recipe').textContent = item.recipe;
+
+            const addBtn = document.getElementById('btn-add-fridge');
+            if (item.remainingDays <= 0) {
+                addBtn.disabled = true;
+                addBtn.className = 'flex-1 bg-slate-300 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-sm';
+                addBtn.innerHTML = '<span>부패 식재료는 냉장고에 등록할 수 없습니다</span>';
+            } else {
+                addBtn.disabled = false;
+                addBtn.className = 'flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition flex items-center justify-center gap-2 text-sm cursor-pointer';
+                addBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg><span>내 냉장고에 등록 (D-${item.remainingDays} 알림)</span>`;
+            }
+        }
+
+        // 내 냉장고에 등록하기
+        function addCurrentToFridge() {
+            const item = detectedResults[selectedResultIndex];
+            if (!item || item.remainingDays <= 0) return;
+
+            const newItem = {
+                id: Date.now(),
+                name: `${item.nameKo} (${item.freshness})`,
+                zone: item.storageZone,
+                dDay: item.remainingDays,
+                price: item.priceValue,
+                weight: item.weightKg,
+                tip: item.storageTip
+            };
+
+            myFridgeItems.unshift(newItem);
+            saveToLocalStorage();
+            renderFridge();
+            showToast(`'${item.nameKo}'이(가) 내 냉장고(${item.storageZone})에 등록되었습니다!`);
+        }
+
+        // 통계 UI 업데이트
+        function updateStatsUI() {
+            document.getElementById('stat-money').textContent = savedStats.money.toLocaleString();
+            document.getElementById('stat-waste').textContent = savedStats.waste;
+            document.getElementById('stat-carbon').textContent = savedStats.carbon;
+        }
+
+        // 냉장고 필터링 및 렌더링
+        function filterFridge(zone) {
+            currentFridgeFilter = zone;
+            document.querySelectorAll('.fridge-filter-btn').forEach(btn => {
+                if (btn.textContent === (zone === 'ALL' ? '전체' : zone)) {
+                    btn.className = 'fridge-filter-btn active px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-xs';
+                } else {
+                    btn.className = 'fridge-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900';
+                }
+            });
+            renderFridge();
+        }
+
+        function renderFridge() {
+            const listEl = document.getElementById('fridge-list');
+            document.getElementById('fridge-badge').textContent = myFridgeItems.length;
+
+            const sorted = [...myFridgeItems]
+                .filter(item => currentFridgeFilter === 'ALL' || item.zone === currentFridgeFilter)
+                .sort((a, b) => a.dDay - b.dDay);
+
+            if (sorted.length === 0) {
+                listEl.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400 text-sm">해당 보관 구역에 등록된 식재료가 없습니다.</div>`;
+                return;
+            }
+
+            listEl.innerHTML = sorted.map(item => {
+                let dBadgeClass = 'bg-emerald-100 text-emerald-700';
+                let borderClass = 'border-slate-200';
+                if (item.dDay <= 1) {
+                    dBadgeClass = 'bg-rose-100 text-rose-700 animate-pulse';
+                    borderClass = 'border-rose-300 bg-rose-50/20';
+                } else if (item.dDay <= 3) {
+                    dBadgeClass = 'bg-amber-100 text-amber-800';
+                    borderClass = 'border-amber-200';
+                }
+
+                return `
+                    <div class="rounded-2xl border ${borderClass} p-4 flex flex-col justify-between bg-white shadow-xs transition hover:shadow-md">
+                        <div>
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">${item.zone}</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold ${dBadgeClass}">D-${item.dDay} ${item.dDay <= 1 ? '긴급' : (item.dDay <= 3 ? '주의' : '여유')}</span>
+                            </div>
+                            <h4 class="text-base font-bold text-slate-900 mt-2.5">${item.name}</h4>
+                            <p class="text-xs text-slate-500 mt-1 line-clamp-2">💡 ${item.tip}</p>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
+                            <button onclick="consumeItem(${item.id}, true)" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-xl transition cursor-pointer">
+                                소비 완료 (+${item.price.toLocaleString()}원 절약)
+                            </button>
+                            <button onclick="consumeItem(${item.id}, false)" class="bg-slate-100 hover:bg-rose-100 hover:text-rose-700 text-slate-500 text-xs font-semibold py-2 px-2.5 rounded-xl transition cursor-pointer" title="폐기 처리">
+                                폐기
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 소비 완료 또는 폐기 처리
+        function consumeItem(id, isSaved) {
+            const idx = myFridgeItems.findIndex(i => i.id === id);
+            if (idx === -1) return;
+            const item = myFridgeItems[idx];
+            myFridgeItems.splice(idx, 1);
+
+            if (isSaved) {
+                savedStats.money += item.price;
+                savedStats.waste = +(savedStats.waste + item.weight).toFixed(1);
+                savedStats.carbon = +(savedStats.carbon + item.weight * 2.5).toFixed(1);
+                updateStatsUI();
+                showToast(`알뜰 소비 성공! 식비 ${item.price.toLocaleString()}원과 탄소 ${(item.weight * 2.5).toFixed(1)}kg을 절감했습니다.`);
+            } else {
+                showToast(`'${item.name}' 항목이 폐기 처리되었습니다.`, 'warn');
+            }
+            saveToLocalStorage();
+            renderFridge();
+        }
+
+        // 식재료 보관 백과 필터 및 렌더링 (20종 전체 DB 연동)
+        function setWikiCategory(cat) {
+            currentWikiCategory = cat;
+            document.querySelectorAll('.wiki-cat-btn').forEach(btn => {
+                if (btn.textContent === (cat === 'ALL' ? '전체' : cat)) {
+                    btn.className = 'wiki-cat-btn active px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 text-white';
+                } else {
+                    btn.className = 'wiki-cat-btn px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200';
+                }
+            });
+            renderWiki();
+        }
+
+        function renderWiki() {
+            const keyword = document.getElementById('wiki-search').value.trim().toLowerCase();
+            const tbody = document.getElementById('wiki-table-body');
+
+            const entries = Object.entries(PUBLIC_FOOD_DB).map(([name, info]) => ({ name, ...info }));
+            const filtered = entries.filter(row => {
+                const matchCat = currentWikiCategory === 'ALL' || row.category === currentWikiCategory;
+                const matchKey = !keyword || row.name.toLowerCase().includes(keyword) || row.tip.toLowerCase().includes(keyword);
+                return matchCat && matchKey;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-slate-400 text-sm">검색 조건에 일치하는 식재료 데이터가 없습니다.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(row => `
+                <tr class="hover:bg-emerald-50/40 transition">
+                    <td class="py-3.5 px-4 whitespace-nowrap">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">${row.category}</span>
+                    </td>
+                    <td class="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap">${row.name} <span class="text-xs font-normal text-slate-400">(${row.en})</span></td>
+                    <td class="py-3.5 px-4 text-xs text-slate-700 whitespace-nowrap font-medium">${row.zone} · ${row.temp}</td>
+                    <td class="py-3.5 px-4 text-xs font-bold text-emerald-700 whitespace-nowrap">${row.standardDays}</td>
+                    <td class="py-3.5 px-4 text-xs text-slate-600 leading-relaxed min-w-[260px]">${row.tip}</td>
+                </tr>
+            `).join('');
+        }
+
+        // 코드 복사 기능
+        function copyCode(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('API 연동 코드가 클립보드에 복사되었습니다!');
+            } catch (err) {
+                showToast('복사에 실패했습니다.', 'warn');
+            }
+            document.body.removeChild(textarea);
+        }
+    </script>
+</body>
+</html>
